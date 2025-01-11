@@ -1,0 +1,38 @@
+import re
+
+# Function to generate chatbot responses
+def chatbot_response(user_input):
+    user_input = user_input.lower()  # Convert input to lowercase for uniformity
+    
+    # Define rules and responses
+    if re.search(r"hello|hi|hey", user_input):
+        return "Hello! How can I assist you today?"
+    elif re.search(r"how are you", user_input):
+        return "I'm just a bot, but I'm doing great! How about you?"
+    elif re.search(r"what is your name", user_input):
+        return "I am a simple rule-based chatbot."
+    elif re.search(r"bye|goodbye", user_input):
+        return "Goodbye! Have a nice day!"
+    elif re.search(r"help|assist", user_input):
+        return "Sure! What do you need help with?"
+    elif re.search(r"your purpose|what do you do", user_input):
+        return "I'm here to chat with you and help with basic tasks."
+    else:
+        return "I'm sorry, I didn't quite understand that. Can you please rephrase?"
+
+# Main conversation loop
+def start_chat():
+    print("Welcome! I am your chatbot. Type 'bye' to exit.")
+    while True:
+        user_input = input("You: ")
+        
+        # Check if the user wants to exit
+        if re.search(r"bye|goodbye", user_input.lower()):
+            print("Chatbot: Goodbye!")
+            break
+        
+        response = chatbot_response(user_input)
+        print("Chatbot:", response)
+
+# Start the chatbot
+start_chat()
