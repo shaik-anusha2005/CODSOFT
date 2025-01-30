@@ -1,0 +1,79 @@
+import tensorflow as tf
+from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense, Embedding, LSTM, Dropout, Add
+import numpy as np
+import pickle
+
+# 1. Feature Extraction using ResNet50
+def extract_features(image_path, model):
+    image = tf.keras.utils.load_img(image_path, target_size=(224, 224))
+    image = tf.keras.utils.img_to_array(image)
+    image = np.expand_dims(image, axis=0)
+    image = tf.keras.applications.resnet50.preprocess_input(image)
+    features = model.predict(image, verbose=0)
+    return features
+
+# Pre-trained ResNet50 model for feature extraction
+base_model = ResNet50(weights='imagenet')
+model_resnet = Model(inputs=base_model.input, outputs=base_model.layers[-2].output)
+
+# 2. Preprocessing captions and building the vocabulary
+def preprocess_captions(captions, tokenizer, max_length):
+    sequences = tokenizer.texts_to_sequences(captions)
+    sequences = tf.keras.preprocessing.sequence.pad_sequences(sequences, maxlen=max_length, padding='post')
+    return sequences
+
+# Tokenizer and example captions
+captions = ["a cat sitting on a mat", "a dog playing in the garden"]
+tokenizer = tf.keras.preprocessing.text.Tokenizer()
+tokenizer.fit_on_texts(captions)
+vocab_size = len(tokenizer.word_index) + 1
+
+# Max length of captions
+max_length = max(len(c.split()) for c in captions)
+
+# 3. Building the Captioning Model
+# Image feature input
+image_input = Input(shape=(2048,))
+image_embedding = Dense(256, activation='relu')(image_input)
+
+# Text input
+text_input = Input(shape=(max_length,))
+text_embedding = Embedding(vocab_size, 256, mask_zero=True)(text_input)
+text_lstm = LSTM(256)(text_embedding)
+
+# Combine image and text features
+decoder = Add()([image_embedding, text_lstm])
+decoder = Dense(256, activation='relu')(decoder)
+output = Dense(vocab_size, activation='softmax')(decoder)
+
+# Define the full model
+caption_model = Model(inputs=[image_input, text_input], outputs=output)
+caption_model.compile(loss='categorical_crossentropy', optimizer='adam')
+
+# 4. Training the Model (example training loop)
+#Assuming image_features and processed_captions are your input features and labels
+image_features = np.array([extract_features(img_path, model_resnet) for img_path in image_paths])
+processed_captions = preprocess_captions(captions, tokenizer, max_length)
+
+# Train example
+caption_model.fit([image_features, processed_captions], labels, epochs=10)
+
+# 5. Generate Captions
+def generate_caption(image_path, tokenizer, max_length):
+    features = extract_features(image_path, model_resnet)
+    input_text = "startseq"
+    for _ in range(max_length):
+        sequence = tokenizer.texts_to_sequences([input_text])[0]
+        sequence = tf.keras.preprocessing.sequence.pad_sequences([sequence], maxlen=max_length, padding='post')
+        prediction = caption_model.predict([features, sequence], verbose=0)
+        predicted_word = tokenizer.index_word[np.argmax(prediction)]
+        input_text += " " + predicted_word
+        if predicted_word == "endseq":
+            break
+    return input_text
+
+# Example usage
+result_caption = generate_caption("example.jpg", tokenizer, max_length)
+print("Generated Caption:", result_caption)
